@@ -4,8 +4,8 @@ git_plugin = self
 
 namespace :puma do
   namespace :systemd do
-    desc 'Config Puma systemd service'
-    task :config do
+    desc 'Install Puma systemd service'
+    task :install do
       on roles(fetch(:puma_role)) do |role|
 
         upload_compiled_template = lambda do |template_name, unit_filename|
@@ -27,8 +27,24 @@ namespace :puma do
 
         # Reload systemd
         git_plugin.execute_systemd("daemon-reload")
+        invoke "puma:enable"
       end
     end
+
+    desc 'Uninstall Puma systemd service'
+  task :uninstall do
+    invoke 'puma:disable'
+    on roles(fetch(:puma_role)) do |role|
+      systemd_path = fetch(:puma_systemd_conf_dir, git_plugin.fetch_systemd_unit_path)
+      if fetch(:puma_systemctl_user) == :system
+        sudo "rm -f #{systemd_path}/#{fetch(:puma_service_unit_name)}*"
+      else
+        execute :rm, "-f", "#{systemd_path}/#{fetch(:puma_service_unit_name)}*"
+      end
+      git_plugin.execute_systemd("daemon-reload")
+    end
+
+  end
 
     desc 'Generate service configuration locally'
     task :generate_config_locally do
